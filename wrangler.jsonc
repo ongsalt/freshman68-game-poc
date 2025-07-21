@@ -25,14 +25,14 @@
 	"kv_namespaces": [
 		{
 			"binding": "KV",
-			"id": "fb04d650d2644ec5bc7f3a25bc8b80c2"
+			"id": "9891c83a57c648b2b0151381d83a959b"
 		}
 	],
 	"d1_databases": [
 		{
 			"binding": "DB",
 			"database_name": "freshmen68-game",
-			"database_id": "638cd6d2-8648-4faf-8db6-2a0045e32d45"
+			"database_id": "8774d0c3-e979-437e-937a-96c6c9040240"
 		}
 	],
 	"queues": {
@@ -73,7 +73,9 @@
 	 * Smart Placement
 	 * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
 	 */
-	"placement": { "mode": "smart" },
+	"placement": {
+		"mode": "smart"
+	},
 	/**
 	 * Bindings
 	 * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including
