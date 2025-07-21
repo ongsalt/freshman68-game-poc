@@ -16,7 +16,8 @@ app.use('*', cors());
 app.use('*', (c, next) => {
 	const query = c.req.query();
 	const ouid = query.ouid ?? "6666666666";
-	const groupNumber = parseInt(query.groupNumber) ?? 6;
+	const groupNumber = parseInt(query.groupNumber) || 6;
+	// console.log({ ouid, groupNumber })
 	c.set('ouid', ouid);
 	c.set('groupNumber', groupNumber);
 	return next();
@@ -95,30 +96,29 @@ app.get("/durable-object/stats/global", async (c) => {
 });
 
 app.get("/durable-object/stats/self", async (c) => {
+	// shuold we cache this???
 	const group = c.get("groupNumber");
 	const ouid = c.get("ouid");
 	const gameRegion = getRegionHandler(group);
 	return c.json(await gameRegion.getPlayerScore(ouid));
 });
 
-app.get("/durable-object/pop", (c) => {
+app.get("/durable-object/pop", async (c) => {
 	const group = c.get("groupNumber");
 	const ouid = c.get("ouid");
 	const pop = parseInt(c.req.query().pop) ?? 1;
 
 	const gameRegion = getRegionHandler(group);
-	gameRegion.addPop(pop, ouid, group);
+	c.executionCtx.waitUntil(gameRegion.addPop(pop, ouid, group));
 	return c.text("queued");
 });
-
-
 
 export { GameServer } from "./game/server";
 export { GameRegionHandler } from "./game/region-handler";
 
 export default class Wroker extends WorkerEntrypoint {
 	async fetch(request: Request): Promise<Response> {
-		return app.fetch(request);
+		return app.fetch(request, {}, this.ctx);
 	}
 
 	async queue(batch: MessageBatch<PopMessage>): Promise<void> {

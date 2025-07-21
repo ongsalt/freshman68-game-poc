@@ -59,6 +59,12 @@
 			"new_sqlite_classes": [
 				"GameServer"
 			]
+		},
+		{
+			"tag": "v1.1",
+			"new_sqlite_classes": [
+				"GameRegionHandler"
+			]
 		}
 	],
 	"durable_objects": {

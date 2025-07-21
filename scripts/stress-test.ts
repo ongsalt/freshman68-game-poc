@@ -44,16 +44,15 @@ class LoadTester {
 				};
 			} else {
 				// Get current durable object data
-				const response = await fetch(`${domain}durable-object/list-pop`);
-				const serverData = response.ok ? await response.json() : [];
+				const response = await fetch(`${domain}durable-object/stats/global`);
+				const serverData = response.ok ? await response.json() : {};
 
-				const totalPops = Array.isArray(serverData) ?
-					serverData.reduce((sum: number, record: any) => sum + (record.amount || 0), 0) : 0;
+				const totalPops = Object.values(serverData as Record<string, number>).reduce((sum, pops) => sum + pops, 0);
 
-				console.log(`📊 Current durable object records: ${Array.isArray(serverData) ? serverData.length : 0}, Total pops: ${totalPops}`);
+				console.log(`📊 Current durable object data: ${Object.keys(serverData).length} groups, Total pops: ${totalPops}`);
 
 				return {
-					records: serverData,
+					groupStats: serverData,
 					totalPops
 				};
 			}
@@ -217,10 +216,11 @@ class LoadTester {
 					fetch(`${domain}game/stats/self?ouid=${user.userId}&groupNumber=${user.groupId}`)
 				]);
 			} else {
-				// Check durable object leaderboard
-				responses = [
-					await fetch(`${domain}durable-object/list-pop?ouid=${user.userId}&groupNumber=${user.groupId}`)
-				];
+				// Check durable object leaderboard and personal stats
+				responses = await Promise.all([
+					fetch(`${domain}durable-object/stats/groups?ouid=${user.userId}&groupNumber=${user.groupId}`),
+					fetch(`${domain}durable-object/stats/self?ouid=${user.userId}&groupNumber=${user.groupId}`)
+				]);
 			}
 
 			const responseTime = Date.now() - startTime;

@@ -16,7 +16,7 @@ export class InGroupLeaderboard {
 		this.#db.exec(`
                 CREATE TABLE IF NOT EXISTS leaderboard (
                     playerId TEXT PRIMARY KEY,
-                    score INTEGER NOT NULL,
+                    score INTEGER NOT NULL
                 );
             `);
 
@@ -25,17 +25,16 @@ export class InGroupLeaderboard {
             `);
 
 		const result = this.#db.exec<{ total_score: number; }>(`SELECT SUM(score) as total_score FROM leaderboard`).one();
-		this.#totalScore = result.total_score;
+		this.#totalScore = result?.total_score || 0;
 	}
 
 	addScore(playerId: string, score: number) {
 		this.#totalScore += score;
 		this.#db.exec(
-			`INSERT INTO leaderboard (playerId, score, lastUpdatedAt)
-             VALUES (?, ?, CURRENT_TIMESTAMP)
+			`INSERT INTO leaderboard (playerId, score)
+             VALUES (?, ?)
              ON CONFLICT(playerId) DO UPDATE SET
-                score = leaderboard.score + EXCLUDED.score, -- Add to existing score
-						`,
+                score = leaderboard.score + EXCLUDED.score`,
 			playerId,
 			score
 		);
@@ -43,18 +42,20 @@ export class InGroupLeaderboard {
 
 	getPlayerScore(playerId: string): number {
 		const score = this.#db.exec(
-			`SELECT score, FROM leaderboard WHERE playerId = ?`,
+			`SELECT score FROM leaderboard WHERE playerId = ?`,
 			playerId
-		).one();
-
-		return score[0] as number;
+		).toArray();
+		if (score.length > 0) {
+			return score[0].score as number;
+		}
+		return 0;
 	}
 
 	getTopScores(limit: number = 10): LeaderboardEntry[] {
 		const rows = this.#db.exec<LeaderboardEntry>(
-			`SELECT playerId, score,
+			`SELECT playerId, score
              FROM leaderboard
-             ORDER BY score DESC, lastUpdatedAt ASC
+             ORDER BY score DESC
              LIMIT ?`,
 			limit
 		).toArray();

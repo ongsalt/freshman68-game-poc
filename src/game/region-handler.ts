@@ -34,6 +34,7 @@ export class GameRegionHandler extends DurableObject<Env> {
 	}
 
 	addPop(count: number, ouid: string, groupNumber: number) {
+		console.log(`Add score ${count} to ${ouid} in ${groupNumber}`);
 		this.leaderboard.addScore(ouid, count);
 		this.ctx.storage.sql.exec("INSERT INTO pops (timestamp, ouid, amount, group_id) VALUES (?, ?, ?, ?)", Date.now(), ouid, count, groupNumber);
 	}
@@ -47,6 +48,7 @@ export class GameRegionHandler extends DurableObject<Env> {
 	}
 
 	getPlayerScore(ouid: string) {
-		return this.leaderboard.getPlayerScore(ouid);
+		const score = this.leaderboard.getPlayerScore(ouid);
+		return score;
 	}
 }
