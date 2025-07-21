@@ -1,7 +1,6 @@
-const domain = "https://game.freshmen68.ongsa.lt/";
 
 interface TestResults {
-	implementation: string;
+	implementation: 'queue' | 'durable';
 	concurrentUsers: number;
 	totalRequests: number;
 	successfulRequests: number;
@@ -26,6 +25,11 @@ interface UserStats {
 class LoadTester {
 	private results: TestResults[] = [];
 	private isRunning = false;
+	private domain: string;
+
+	constructor(domain: string = "http://localhost:8787/") {
+		this.domain = domain;
+	}
 
 	private async getBaselineData(implementation: 'queue' | 'durable') {
 		console.log(`🔍 Collecting baseline data for ${implementation} implementation...`);
@@ -33,7 +37,7 @@ class LoadTester {
 		try {
 			if (implementation === 'queue') {
 				// Get current group stats
-				const groupResponse = await fetch(`${domain}game/stats/groups`);
+				const groupResponse = await fetch(`${this.domain}game/stats/groups`);
 				const groupStats = groupResponse.ok ? await groupResponse.json() : null;
 
 				console.log(`📊 Current server group stats:`, groupStats);
@@ -44,7 +48,7 @@ class LoadTester {
 				};
 			} else {
 				// Get current durable object data
-				const response = await fetch(`${domain}durable-object/stats/global`);
+				const response = await fetch(`${this.domain}durable-object/stats/global`);
 				const serverData = response.ok ? await response.json() : {};
 
 				const totalPops = Object.values(serverData as Record<string, number>).reduce((sum, pops) => sum + pops, 0);
@@ -80,7 +84,10 @@ class LoadTester {
 		// Create users with realistic distribution across groups (1-15)
 		for (let i = 0; i < maxUsers; i++) {
 			const userId = `6${String(i).padStart(9, '0')}`;
-			const groupId = (i % 15) + 1; // Groups 1-15
+			let groupId = (i % 6) + 1; // Groups 1-6
+			if (groupId == 2) {
+				groupId = 7;
+			}
 			users.push({
 				userId,
 				groupId,
@@ -170,13 +177,13 @@ class LoadTester {
 			let response: Response;
 
 			if (implementation === 'queue') {
-				response = await fetch(`${domain}game/pop?ouid=${user.userId}&groupNumber=${user.groupId}`, {
+				response = await fetch(`${this.domain}game/pop?ouid=${user.userId}&groupNumber=${user.groupId}`, {
 					method: 'POST',
 					headers: { 'Content-Type': 'text/plain' },
 					body: popCount.toString()
 				});
 			} else {
-				response = await fetch(`${domain}durable-object/pop?pop=${popCount}&ouid=${user.userId}&groupNumber=${user.groupId}`, {
+				response = await fetch(`${this.domain}durable-object/pop?pop=${popCount}&ouid=${user.userId}&groupNumber=${user.groupId}`, {
 					method: 'GET'
 				});
 			}
@@ -212,14 +219,14 @@ class LoadTester {
 			if (implementation === 'queue') {
 				// Check both group stats and personal stats
 				responses = await Promise.all([
-					fetch(`${domain}game/stats/groups?ouid=${user.userId}&groupNumber=${user.groupId}`),
-					fetch(`${domain}game/stats/self?ouid=${user.userId}&groupNumber=${user.groupId}`)
+					fetch(`${this.domain}game/stats/groups?ouid=${user.userId}&groupNumber=${user.groupId}`),
+					fetch(`${this.domain}game/stats/self?ouid=${user.userId}&groupNumber=${user.groupId}`)
 				]);
 			} else {
 				// Check durable object leaderboard and personal stats
 				responses = await Promise.all([
-					fetch(`${domain}durable-object/stats/groups?ouid=${user.userId}&groupNumber=${user.groupId}`),
-					fetch(`${domain}durable-object/stats/self?ouid=${user.userId}&groupNumber=${user.groupId}`)
+					fetch(`${this.domain}durable-object/stats/groups?ouid=${user.userId}&groupNumber=${user.groupId}`),
+					fetch(`${this.domain}durable-object/stats/self?ouid=${user.userId}&groupNumber=${user.groupId}`)
 				]);
 			}
 
@@ -300,10 +307,8 @@ class LoadTester {
 		console.log('\n📊 Pops by Group:');
 		console.table(groupBreakdown);
 
-		// Verify with server data
-		this.verifyServerData(result.implementation, popsByGroup, totalPopsGenerated, baseline).catch(err => {
-			console.log(`⚠️  Server verification failed: ${err.message}`);
-		});
+		// Print expected leaderboard as JSON
+		this.printExpectedLeaderboard(popsByGroup, baseline);
 
 		if (result.errors.length > 0) {
 			console.log(`\n❌ Sample Errors:`);
@@ -314,20 +319,7 @@ class LoadTester {
 		console.log(`${'='.repeat(50)}\n`);
 	}
 
-	private async verifyServerData(implementation: string, expectedPopsByGroup: Record<number, number>, expectedTotal: number, baseline: any) {
-		try {
-			console.log(`\n🔍 Expected leaderboard data for ${implementation} implementation:`);
-
-			console.log('\n� Expected Leaderboard:');
-			console.log(expectedPopsByGroup);
-			console.log(`Total: ${expectedTotal}`);
-
-			console.log(`\n💡 Manual verification: Compare the expected values above with your server's actual data`);
-
-		} catch (error) {
-			console.log(`⚠️  Failed to generate verification data: ${error}`);
-		}
-	} getResults(): TestResults[] {
+	getResults(): TestResults[] {
 		return this.results;
 	}
 
@@ -375,6 +367,38 @@ class LoadTester {
 		}
 		console.log(`${'='.repeat(60)}\n`);
 	}
+
+	private printExpectedLeaderboard(popsByGroup: Record<number, number>, baseline: any) {
+		console.log('\n📋 Expected Leaderboard (JSON):');
+		console.log(`${'='.repeat(50)}`);
+
+		// Merge baseline data with pops added by script
+		const expectedLeaderboard: Record<string, number> = {};
+
+		// Add baseline data
+		if (baseline.groupStats) {
+			Object.entries(baseline.groupStats).forEach(([groupId, pops]) => {
+				expectedLeaderboard[groupId] = pops as number;
+			});
+		}
+
+		// Add pops generated by the script
+		Object.entries(popsByGroup).forEach(([groupId, pops]) => {
+			const groupIdStr = groupId.toString();
+			expectedLeaderboard[groupIdStr] = (expectedLeaderboard[groupIdStr] || 0) + pops;
+		});
+
+		// Sort by pops (descending)
+		const sortedLeaderboard = Object.entries(expectedLeaderboard)
+			.sort(([, a], [, b]) => b - a)
+			.reduce((acc, [groupId, pops]) => {
+				acc[groupId] = pops;
+				return acc;
+			}, {} as Record<string, number>);
+
+		console.log(JSON.stringify(sortedLeaderboard, null, 2));
+		console.log(`${'='.repeat(50)}\n`);
+	}
 }
 
 // Test configurations
@@ -385,8 +409,8 @@ const testConfigs = [
 	{ users: 1400, duration: 90000 },  // 1400 users for 1.5 min
 ];
 
-async function runFullTest() {
-	const tester = new LoadTester();
+async function runFullTest(domain: string = "http://localhost:8787/") {
+	const tester = new LoadTester(domain);
 
 	console.log("🎯 Starting comprehensive load test...\n");
 
@@ -415,8 +439,8 @@ async function runFullTest() {
 }
 
 // Quick test function for single implementation
-async function quickTest(implementation: 'queue' | 'durable', users: number = 100, duration: number = 30000) {
-	const tester = new LoadTester();
+async function quickTest(implementation: 'queue' | 'durable', users: number = 100, duration: number = 30000, domain: string = "http://localhost:8787/") {
+	const tester = new LoadTester(domain);
 	await tester.runTest(implementation, users, duration);
 	return tester.getResults()[0];
 }
@@ -424,7 +448,7 @@ async function quickTest(implementation: 'queue' | 'durable', users: number = 10
 // Export functions for use
 export { runFullTest, quickTest, LoadTester };
 
-// Run the test if this file is executed directly
-// Uncomment the line below to run automatically
-// runFullTest().catch(console.error);
-quickTest("durable", 1200, 120000).catch(console.error);
+// const domain = "http://localhost:8787/";
+const domain = "https://game.freshmen68.ongsa.lt/";
+
+await quickTest("durable", 1200, 120000, domain);
