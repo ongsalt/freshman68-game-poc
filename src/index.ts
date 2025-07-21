@@ -1,7 +1,9 @@
 import { env, WorkerEntrypoint } from 'cloudflare:workers';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { getPopByGroups, getRegionHandler } from './game/coordinator';
 
+const CACHE_DURATION = 15; //sec
 const app = new Hono<{
 	Variables: {
 		ouid: string,
@@ -56,28 +58,65 @@ app.get("/game/stats/self", async (c) => {
 });
 
 
-// we can actually make a instance of this for each groups
-app.get("/durable-object/list-pop", async (c) => {
-	const id = env.GAME_SERVER.idFromName("global");
-	const server = env.GAME_SERVER.get(id);
-	return c.json(await server.listPop());
+
+
+app.get("/durable-object/stats/groups", async (c) => {
+	const cached = await caches.default.match(c.req.raw);
+	if (cached) {
+		return cached;
+	}
+
+	const group = c.get("groupNumber");
+	const gameRegion = getRegionHandler(group);
+	const response = Response.json(await gameRegion.getTopTen(), {
+		headers: {
+			"Cache-Control": `max-age=${CACHE_DURATION}`
+		}
+	});
+	caches.default.put(new Request(c.req.raw.url, c.req.raw), response.clone());
+	return response;
+});
+
+app.get("/durable-object/stats/global", async (c) => {
+	// we do this to reduce amount of rpc call to Durable object
+	const cached = await caches.default.match(c.req.raw);
+	if (cached) {
+		return cached;
+	}
+
+	const pops = await getPopByGroups();
+	const response = Response.json(pops, {
+		headers: {
+			"Cache-Control": `max-age=${CACHE_DURATION}`
+		}
+	});
+	caches.default.put(new Request(c.req.raw.url, c.req.raw), response.clone());
+	return response;
+});
+
+app.get("/durable-object/stats/self", async (c) => {
+	const group = c.get("groupNumber");
+	const ouid = c.get("ouid");
+	const gameRegion = getRegionHandler(group);
+	return c.json(await gameRegion.getPlayerScore(ouid));
 });
 
 app.get("/durable-object/pop", (c) => {
-	const pop = parseInt(c.req.query().pop) ?? 8;
-	const id = env.GAME_SERVER.idFromName("global");
-	const server = env.GAME_SERVER.get(id);
+	const group = c.get("groupNumber");
 	const ouid = c.get("ouid");
-	const checksumDigit = ouid.charAt(8);
+	const pop = parseInt(c.req.query().pop) ?? 1;
 
-	server.addPop(pop, ouid, c.get("groupNumber"));
-	return c.text("queue");
+	const gameRegion = getRegionHandler(group);
+	gameRegion.addPop(pop, ouid, group);
+	return c.text("queued");
 });
+
+
 
 export { GameServer } from "./game/server";
 export { GameRegionHandler } from "./game/region-handler";
 
-export default class TRPCCloudflareWorkerExample extends WorkerEntrypoint {
+export default class Wroker extends WorkerEntrypoint {
 	async fetch(request: Request): Promise<Response> {
 		return app.fetch(request);
 	}

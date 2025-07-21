@@ -1,3 +1,4 @@
+// unused
 // Gemini wrote this, K must be sortable btw
 export class SortedMap<K, V> {
 	#map: Map<K, V>;

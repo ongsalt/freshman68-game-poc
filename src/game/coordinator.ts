@@ -6,10 +6,19 @@ export type GameRegion = {
 	handler: DurableObjectStub<GameRegionHandler>;
 };
 
+export const groupNumbers = [1, 3, 4, 5, 6, 7];
+
+export function getRegionHandler(groupNumber: number) {
+	if (!groupNumbers.includes(groupNumber)) {
+		throw new Error("no");
+	}
+	return env.GAME_REGION_HANDLER.get(env.GAME_REGION_HANDLER.idFromName(`group:${groupNumber}`));
+}
+
 export function getAllRegionHandlers(): GameRegion[] {
-	return [1, 3, 4, 5, 6, 7].map(i => ({
+	return groupNumbers.map(i => ({
 		groupNumber: i,
-		handler: env.GAME_REGION_HANDLER.get(env.GAME_REGION_HANDLER.idFromName(`group:${i}`))
+		handler: getRegionHandler(i)
 	}));
 }
 
