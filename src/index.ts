@@ -11,7 +11,7 @@ const app = new Hono<{
 
 app.use('*', cors());
 
-app.use('*', async (c, next) => {
+app.use('*', (c, next) => {
 	const query = c.req.query();
 	const ouid = query.ouid ?? "6666666666";
 	const groupNumber = parseInt(query.groupNumber) ?? 6;
@@ -49,7 +49,7 @@ app.get("/game/stats/self", async (c) => {
 	const checksumDigit = id.charAt(8);
 	const data = await env.KV.get(`count:${checksumDigit}`, "json") as Counts | null;
 	console.log(checksumDigit, data);
-	if (!data) {
+	if (!data || !data[id]) {
 		return c.text(0..toString());
 	}
 	return c.text(data[id].toString());
@@ -109,7 +109,7 @@ export default class TRPCCloudflareWorkerExample extends WorkerEntrypoint {
 	async scheduled(controller: ScheduledController): Promise<void> {
 		const [popByGroup, popByUser] = await env.DB.batch([
 			env.DB.prepare("SELECT group_id, SUM(amount) as total_pops FROM pops GROUP BY group_id"),
-			env.DB.prepare("SELECT ouid, SUM(amount) as total_pops FROM pops")
+			env.DB.prepare("SELECT ouid, SUM(amount) as total_pops FROM pops GROUP BY ouid")
 		]);
 
 		console.log({ popByGroup, popByUser });
@@ -144,10 +144,12 @@ export default class TRPCCloudflareWorkerExample extends WorkerEntrypoint {
 			obj => obj.ouid.charAt(8)
 		);
 
+		console.log("userRecords", userRecords);
+
 		for (const [chunkId, users] of Object.entries(userRecords)) {
 			if (users) {
 				const chunk = Object.fromEntries(users.map(it => [it.ouid, it.total_pops]));
-				// console.log({ chunk });
+				console.log({ chunk });
 				await env.KV.put(`count:${chunkId}`, JSON.stringify(chunk));
 			}
 		}
