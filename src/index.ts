@@ -192,7 +192,7 @@ export default class TRPCCloudflareWorkerExample extends WorkerEntrypoint {
 		// Update the last processed timestamp
 		await env.KV.put("last_processed_timestamp", currentTimestamp.toString());
 
-		// console.log("Pop stats by group:", currentGroupTotals, userRecords);
+		console.log("Updated", currentGroupTotals);
 	}
 }
 ;
