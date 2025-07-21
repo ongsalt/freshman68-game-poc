@@ -3,7 +3,7 @@
  * https://developers.cloudflare.com/workers/wrangler/configuration/
  */
 {
-	"$schema": "../../node_modules/wrangler/config-schema.json",
+	"$schema": "./node_modules/wrangler/config-schema.json",
 	"name": "freshmen68-api",
 	"main": "src/index.ts",
 	"compatibility_date": "2025-07-11",
@@ -18,7 +18,7 @@
 	},
 	"routes": [
 		{
-			"pattern": "api.freshmen68.vidyachula.org",
+			"pattern": "game.freshmen68.ongsa.lt",
 			"custom_domain": true
 		},
 	],

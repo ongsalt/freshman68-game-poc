@@ -4,32 +4,21 @@ import { cors } from 'hono/cors';
 
 const app = new Hono<{
 	Variables: {
-		user: typeof auth.$Infer.Session.user | null;
-		session: typeof auth.$Infer.Session.session | null;
+		ouid: string,
+		groupNumber: number;
 	};
 }>();
 
-app.use(
-	'*', // or replace with "*" to enable cors for all routes
-	cors({
-		origin: [env.FRONTEND_URL || 'http://localhost:5173', env.PUBLIC_BETTER_AUTH_URL || 'http://localhost:8787'],
-		allowHeaders: ['Content-Type', 'Authorization'],
-		allowMethods: ['POST', 'GET', 'OPTIONS'],
-		exposeHeaders: ['Content-Length'],
-		maxAge: 600,
-		credentials: true,
-	}),
-);
+app.use('*', cors());
 
 app.use('*', async (c, next) => {
-
-	// TODO: get from req header or smth
-	c.set('user', session.user);
-	c.set('session', session.session);
+	const query = c.req.query();
+	const ouid = query.ouid ?? "6666666666";
+	const groupNumber = parseInt(query.groupNumber) ?? 6;
+	c.set('ouid', ouid);
+	c.set('groupNumber', groupNumber);
 	return next();
 });
-
-
 
 type PopMessage = {
 	ouid: string;
@@ -71,10 +60,6 @@ app.get("/game/stats/self", async (c) => {
 });
 
 
-app.get("/game/", c => {
-	return c.text("ok");
-});
-
 // we can actually make a instance of this for each groups
 app.get("/durable-object/list-pop", async (c) => {
 	const id = env.GAME_SERVER.idFromName("global");
@@ -91,12 +76,6 @@ app.get("/durable-object/pop", (c) => {
 	server.addPop(8, ouid, 3);
 	return c.text("queue");
 });
-
-
-// redirect all other requests to the frontend URL
-// app.all('*', (c) => {
-// 	return c.redirect(`${env.FRONTEND_URL || 'http://localhost:5173'}${c.req.path}`, 302);
-// });
 
 export { GameServer } from "./game";
 
