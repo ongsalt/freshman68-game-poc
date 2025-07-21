@@ -85,22 +85,6 @@ export class GameServer extends DurableObject<Env> {
 			.toArray() as UserPops[];
 
 		this.ctx.storage.put(Object.fromEntries(popByGroup.map(it => [it.group_id, it.total_pops])));
-		// this.ctx.storage.put(Object.fromEntries(popByUser.map(it => [it.ouid, it.total_pops])));
-		// this is not io bound anymore?
-
-		// SO no chunking
-		// const userRecords = Object.groupBy(
-		// 	popByUser,
-		// 	obj => obj.ouid.charAt(8)
-		// );
-
-		// for (const [chunkId, users] of Object.entries(userRecords)) {
-		// 	if (users) {
-		// 		const chunk = Object.fromEntries(users.map(it => [it.ouid, it.total_pops]));
-		// 		// console.log({ chunk });
-		// 		await this.ctx.storage.put(`count:${chunkId}`, chunk);
-		// 	}
-		// }
 	}
 
 }

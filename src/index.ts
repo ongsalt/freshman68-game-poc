@@ -31,8 +31,8 @@ app.post("/game/pop", async (c) => {
 	if (Number.isNaN(count)) {
 		return c.text("nan");
 	}
-	const group = 3;
-	const ouid = getItFromRequestSomehow();
+	const group = c.get("groupNumber");
+	const ouid = c.get("ouid");
 	await env.freshmen68_queues.send({ count, group, ouid } satisfies PopMessage);
 	return c.text("queued");
 });
@@ -44,12 +44,8 @@ app.get("/game/stats/groups", async (c) => {
 	return c.json(data);
 });
 
-function getItFromRequestSomehow() {
-	return "6666666666";
-}
-
 app.get("/game/stats/self", async (c) => {
-	const id = getItFromRequestSomehow();
+	const id = c.get("ouid");
 	const checksumDigit = id.charAt(8);
 	const data = await env.KV.get(`count:${checksumDigit}`, "json") as Counts | null;
 	console.log(checksumDigit, data);
@@ -68,12 +64,13 @@ app.get("/durable-object/list-pop", async (c) => {
 });
 
 app.get("/durable-object/pop", (c) => {
+	const pop = parseInt(c.req.query().pop) ?? 8;
 	const id = env.GAME_SERVER.idFromName("global");
 	const server = env.GAME_SERVER.get(id);
-	const ouid = getItFromRequestSomehow();
+	const ouid = c.get("ouid");
 	const checksumDigit = ouid.charAt(8);
 
-	server.addPop(8, ouid, 3);
+	server.addPop(pop, ouid, c.get("groupNumber"));
 	return c.text("queue");
 });
 
@@ -114,6 +111,8 @@ export default class TRPCCloudflareWorkerExample extends WorkerEntrypoint {
 			env.DB.prepare("SELECT group_id, SUM(amount) as total_pops FROM pops GROUP BY group_id"),
 			env.DB.prepare("SELECT ouid, SUM(amount) as total_pops FROM pops")
 		]);
+
+		console.log({ popByGroup, popByUser });
 		// set count:{uid} of every user
 		type UserPops = {
 			ouid: string,
