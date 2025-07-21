@@ -1,0 +1,1 @@
+ALTER TABLE pops ADD COLUMN group_id INTEGER;
