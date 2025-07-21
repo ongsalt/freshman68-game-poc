@@ -112,7 +112,7 @@ export default class TRPCCloudflareWorkerExample extends WorkerEntrypoint {
 			env.DB.prepare("SELECT ouid, SUM(amount) as total_pops FROM pops GROUP BY ouid")
 		]);
 
-		console.log({ popByGroup, popByUser });
+		// console.log({ popByGroup, popByUser });
 		// set count:{uid} of every user
 		type UserPops = {
 			ouid: string,
@@ -144,12 +144,12 @@ export default class TRPCCloudflareWorkerExample extends WorkerEntrypoint {
 			obj => obj.ouid.charAt(8)
 		);
 
-		console.log("userRecords", userRecords);
+		// console.log("userRecords", userRecords);
 
 		for (const [chunkId, users] of Object.entries(userRecords)) {
 			if (users) {
 				const chunk = Object.fromEntries(users.map(it => [it.ouid, it.total_pops]));
-				console.log({ chunk });
+				// console.log({ chunk });
 				await env.KV.put(`count:${chunkId}`, JSON.stringify(chunk));
 			}
 		}
@@ -160,7 +160,7 @@ export default class TRPCCloudflareWorkerExample extends WorkerEntrypoint {
 		);
 
 		await env.KV.put(`group_count`, JSON.stringify(record));
-		console.log("Pop stats by group:", record, userRecords);
+		// console.log("Pop stats by group:", record, userRecords);
 	}
 }
 ;

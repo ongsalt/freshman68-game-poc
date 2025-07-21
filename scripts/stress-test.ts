@@ -435,4 +435,4 @@ export { runFullTest, quickTest, LoadTester };
 // Run the test if this file is executed directly
 // Uncomment the line below to run automatically
 // runFullTest().catch(console.error);
-quickTest("queue").catch(console.error)
+quickTest("queue", 1000, 30000).catch(console.error)
