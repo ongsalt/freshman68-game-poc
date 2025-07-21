@@ -107,20 +107,40 @@ export default class TRPCCloudflareWorkerExample extends WorkerEntrypoint {
 
 
 	async scheduled(controller: ScheduledController): Promise<void> {
-		const [popByGroup, popByUser] = await env.DB.batch([
-			env.DB.prepare("SELECT group_id, SUM(amount) as total_pops FROM pops GROUP BY group_id"),
-			env.DB.prepare("SELECT ouid, SUM(amount) as total_pops FROM pops GROUP BY ouid")
+		// Get the last processed timestamp from KV storage
+		const lastProcessedTimestamp = await env.KV.get("last_processed_timestamp");
+		const lastTimestamp = lastProcessedTimestamp ? parseInt(lastProcessedTimestamp) : 0;
+		const currentTimestamp = Date.now();
+
+		// Only process new pop events since last update
+		const [newPopsByGroup, newPopsByUser] = await env.DB.batch([
+			env.DB.prepare("SELECT group_id, SUM(amount) as new_pops FROM pops WHERE timestamp > ? GROUP BY group_id").bind(lastTimestamp),
+			env.DB.prepare("SELECT ouid, SUM(amount) as new_pops FROM pops WHERE timestamp > ? GROUP BY ouid").bind(lastTimestamp)
 		]);
 
-		// console.log({ popByGroup, popByUser });
+		// Get current totals from KV
+		const currentGroupTotals = await env.KV.get("group_count", "json") as Record<string, number> || {};
+		const currentUserChunks = await Promise.all(
+			Array.from({length: 10}, (_, i) =>
+				env.KV.get(`count:${i}`, "json").then(data => ({ chunk: i.toString(), data: data as Record<string, number> || {} }))
+			)
+		);
+
+		// Merge current user chunks into one object
+		const currentUserTotals: Record<string, number> = {};
+		currentUserChunks.forEach(({data}) => {
+			Object.assign(currentUserTotals, data);
+		});
+
+		// console.log({ newPopsByGroup, newPopsByUser });
 		// set count:{uid} of every user
 		type UserPops = {
 			ouid: string,
-			total_pops: number;
+			new_pops: number;
 		};
 		type GroupPops = {
 			group_id: string,
-			total_pops: number;
+			new_pops: number;
 		};
 
 		/**
@@ -137,10 +157,16 @@ export default class TRPCCloudflareWorkerExample extends WorkerEntrypoint {
 		 *
 		*/
 
+		// Update user totals with new pops
+		const newUserPops = newPopsByUser.results as UserPops[];
+		newUserPops.forEach(userPop => {
+			const currentTotal = currentUserTotals[userPop.ouid] || 0;
+			currentUserTotals[userPop.ouid] = currentTotal + userPop.new_pops;
+		});
 
-		// 24h * 60mins * 1 sum/minutes * 4 days * 10 objects = 57600 write
+		// Group updated user totals by checksum digit for chunked storage
 		const userRecords = Object.groupBy(
-			popByUser.results as UserPops[],
+			Object.entries(currentUserTotals).map(([ouid, total_pops]) => ({ ouid, total_pops })),
 			obj => obj.ouid.charAt(8)
 		);
 
@@ -154,13 +180,19 @@ export default class TRPCCloudflareWorkerExample extends WorkerEntrypoint {
 			}
 		}
 
-		const groups = popByGroup.results as GroupPops[];
-		const record = Object.fromEntries(
-			groups.map(it => [it.group_id, it.total_pops])
-		);
+		// Update group totals with new pops
+		const newGroupPops = newPopsByGroup.results as GroupPops[];
+		newGroupPops.forEach(groupPop => {
+			const currentTotal = currentGroupTotals[groupPop.group_id] || 0;
+			currentGroupTotals[groupPop.group_id] = currentTotal + groupPop.new_pops;
+		});
 
-		await env.KV.put(`group_count`, JSON.stringify(record));
-		// console.log("Pop stats by group:", record, userRecords);
+		await env.KV.put(`group_count`, JSON.stringify(currentGroupTotals));
+
+		// Update the last processed timestamp
+		await env.KV.put("last_processed_timestamp", currentTimestamp.toString());
+
+		// console.log("Pop stats by group:", currentGroupTotals, userRecords);
 	}
 }
 ;
