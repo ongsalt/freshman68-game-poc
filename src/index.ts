@@ -74,7 +74,8 @@ app.get("/durable-object/pop", (c) => {
 	return c.text("queue");
 });
 
-export { GameServer } from "./game";
+export { GameServer } from "./game/server";
+export { GameRegionHandler } from "./game/region-handler";
 
 export default class TRPCCloudflareWorkerExample extends WorkerEntrypoint {
 	async fetch(request: Request): Promise<Response> {
@@ -121,14 +122,14 @@ export default class TRPCCloudflareWorkerExample extends WorkerEntrypoint {
 		// Get current totals from KV
 		const currentGroupTotals = await env.KV.get("group_count", "json") as Record<string, number> || {};
 		const currentUserChunks = await Promise.all(
-			Array.from({length: 10}, (_, i) =>
+			Array.from({ length: 10 }, (_, i) =>
 				env.KV.get(`count:${i}`, "json").then(data => ({ chunk: i.toString(), data: data as Record<string, number> || {} }))
 			)
 		);
 
 		// Merge current user chunks into one object
 		const currentUserTotals: Record<string, number> = {};
-		currentUserChunks.forEach(({data}) => {
+		currentUserChunks.forEach(({ data }) => {
 			Object.assign(currentUserTotals, data);
 		});
 
@@ -195,4 +196,4 @@ export default class TRPCCloudflareWorkerExample extends WorkerEntrypoint {
 		console.log("Updated", currentGroupTotals);
 	}
 }
-;
+

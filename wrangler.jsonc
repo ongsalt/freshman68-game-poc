@@ -66,6 +66,10 @@
 			{
 				"name": "GAME_SERVER",
 				"class_name": "GameServer",
+			},
+			{
+				"name": "GAME_REGION_HANDLER",
+				"class_name": "GameRegionHandler",
 			}
 		],
 	},

@@ -427,4 +427,4 @@ export { runFullTest, quickTest, LoadTester };
 // Run the test if this file is executed directly
 // Uncomment the line below to run automatically
 // runFullTest().catch(console.error);
-quickTest("queue", 1200, 120000).catch(console.error);
+quickTest("durable", 1200, 120000).catch(console.error);
