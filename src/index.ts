@@ -75,7 +75,7 @@ app.get("/durable-object/stats/groups", async (c) => {
 			"Cache-Control": `max-age=${CACHE_DURATION}`
 		}
 	});
-	caches.default.put(new Request(c.req.raw.url, c.req.raw), response.clone());
+	c.executionCtx.waitUntil(caches.default.put(new Request(c.req.raw.url, c.req.raw), response.clone()));
 	return response;
 });
 
@@ -93,7 +93,7 @@ app.get("/durable-object/stats/global", async (c) => {
 			"Cache-Control": `max-age=${CACHE_DURATION}`
 		}
 	});
-	caches.default.put(new Request(c.req.raw.url, c.req.raw), response.clone());
+	c.executionCtx.waitUntil(caches.default.put(new Request(c.req.raw.url, c.req.raw), response.clone()));
 	return response;
 });
 
