@@ -1,4 +1,5 @@
-import type { InGroupLeaderboard } from "./leaderboard";
+import type { SqliteLeaderboard } from "./sqlite-leaderboard";
+import { SortedMap } from "./sorted-map";
 
 type LeaderboardEntry = {
 	playerId: string;
@@ -6,67 +7,51 @@ type LeaderboardEntry = {
 };
 
 export class InMemoryInGroupLeaderboard {
-	#db: SqlStorage;
+	#db: DurableObjectStorage;
 	#totalScore = 0;
+	scoreByUser = new Map<string, number>;
+	usersByScore = new SortedMap<number, Set<string>>();
 
-	constructor(db: SqlStorage) {
+	constructor(db: DurableObjectStorage) {
 		this.#db = db;
 		this.initialize();
 	}
 
-	initialize() {
-		this.#db.exec(`
-                CREATE TABLE IF NOT EXISTS leaderboard (
-                    playerId TEXT PRIMARY KEY,
-                    score INTEGER NOT NULL
-                );
-            `);
-
-		this.#db.exec(`
-                CREATE INDEX IF NOT EXISTS idx_score ON leaderboard (score DESC);
-            `);
-
-		const result = this.#db.exec<{ total_score: number; }>(`SELECT SUM(score) as total_score FROM leaderboard`).one();
-		this.#totalScore = result?.total_score || 0;
+	async initialize(fresh = false) {
+		if (fresh) {
+			// aggregated from `pops`
+			const result = this.#db.sql.exec<{ total_score: number; }>(`SELECT SUM(score) as total_score FROM leaderboard`).one();
+			this.#totalScore = result?.total_score || 0;
+		} else {
+			this.#totalScore = parseInt(await this.#db.get("totalScore") ?? "0");
+		}
 	}
 
-	addScore(playerId: string, score: number) {
+	addScore(ouid: string, score: number) {
 		this.#totalScore += score;
-		this.#db.exec(
-			`INSERT INTO leaderboard (playerId, score)
-             VALUES (?, ?)
-             ON CONFLICT(playerId) DO UPDATE SET
-                score = leaderboard.score + EXCLUDED.score`,
-			playerId,
-			score
-		);
+		const previousScore = this.scoreByUser.get(ouid);
+		const newScore = previousScore ?? 0 + score;
+		this.scoreByUser.set(ouid, newScore);
+		if (previousScore) {
+			this.usersByScore.get(previousScore)?.delete(ouid);
+		}
+		const users = this.usersByScore.get(newScore);
+		if (!users) {
+			this.usersByScore.set(newScore, new Set([ouid]));
+		} else {
+			users.add(ouid);
+		}
 	}
 
 	getPlayerScore(playerId: string): number {
-		const score = this.#db.exec(
-			`SELECT score FROM leaderboard WHERE playerId = ?`,
-			playerId
-		).toArray();
-		if (score.length > 0) {
-			return score[0].score as number;
-		}
-		return 0;
+		return this.scoreByUser.get(playerId) ?? 0;
 	}
 
 	getTopScores(limit: number = 10): LeaderboardEntry[] {
-		const rows = this.#db.exec<LeaderboardEntry>(
-			`SELECT playerId, score
-             FROM leaderboard
-             ORDER BY score DESC
-             LIMIT ?`,
-			limit
-		).toArray();
-		return rows;
 	}
 
 	getTotalPlayers() {
-		const result = this.#db.exec<{ count: number; }>(`SELECT COUNT(*) as count FROM leaderboard`).one();
-		return result.count;
+
 	}
 
 	get totalScore() {

@@ -3,7 +3,7 @@ type LeaderboardEntry = {
 	score: number;
 };
 
-export class InGroupLeaderboard {
+export class SqliteLeaderboard {
 	#db: SqlStorage;
 	#totalScore = 0;
 
@@ -24,6 +24,10 @@ export class InGroupLeaderboard {
                 CREATE INDEX IF NOT EXISTS idx_score ON leaderboard (score DESC);
             `);
 
+		this.#db.exec(`
+                CREATE INDEX IF NOT EXISTS idx_playerId ON leaderboard (playerId DESC);
+            `);
+
 		const result = this.#db.exec<{ total_score: number; }>(`SELECT SUM(score) as total_score FROM leaderboard`).one();
 		this.#totalScore = result?.total_score || 0;
 	}
@@ -41,6 +45,7 @@ export class InGroupLeaderboard {
 	}
 
 	getPlayerScore(playerId: string): number {
+		// TODO: create an index for this
 		const score = this.#db.exec(
 			`SELECT score FROM leaderboard WHERE playerId = ?`,
 			playerId

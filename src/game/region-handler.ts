@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import { InGroupLeaderboard } from "./leaderboard";
+import { SqliteLeaderboard } from "./sqlite-leaderboard";
 
 export type UserPops = {
 	ouid: string,
@@ -11,14 +11,14 @@ export type GroupPops = {
 };
 
 export class GameRegionHandler extends DurableObject<Env> {
-	leaderboard!: InGroupLeaderboard;
+	leaderboard!: SqliteLeaderboard;
 
 	constructor(ctx: DurableObjectState, env: Env) {
 		super(ctx, env);
 
 		ctx.blockConcurrencyWhile(async () => {
 			this.#applyMigration();
-			this.leaderboard = new InGroupLeaderboard(ctx.storage.sql);
+			this.leaderboard = new SqliteLeaderboard(ctx.storage.sql);
 		});
 	}
 
