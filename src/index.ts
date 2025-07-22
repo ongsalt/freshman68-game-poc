@@ -64,6 +64,7 @@ app.get("/game/stats/self", async (c) => {
 app.get("/durable-object/stats/groups", async (c) => {
 	const cached = await caches.default.match(c.req.raw);
 	if (cached) {
+		console.log(`Cache hit for ${c.req.url}`);
 		return cached;
 	}
 
@@ -82,6 +83,7 @@ app.get("/durable-object/stats/global", async (c) => {
 	// we do this to reduce amount of rpc call to Durable object
 	const cached = await caches.default.match(c.req.raw);
 	if (cached) {
+		console.log(`Cache hit for ${c.req.url}`);
 		return cached;
 	}
 

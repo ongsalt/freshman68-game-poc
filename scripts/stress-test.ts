@@ -219,14 +219,14 @@ class LoadTester {
 			if (implementation === 'queue') {
 				// Check both group stats and personal stats
 				responses = await Promise.all([
-					fetch(`${this.domain}game/stats/groups?ouid=${user.userId}&groupNumber=${user.groupId}`),
-					fetch(`${this.domain}game/stats/self?ouid=${user.userId}&groupNumber=${user.groupId}`)
+					fetch(`${this.domain}game/stats/groups?groupNumber=${user.groupId}`),
+					// fetch(`${this.domain}game/stats/self?ouid=${user.userId}&groupNumber=${user.groupId}`)
 				]);
 			} else {
 				// Check durable object leaderboard and personal stats
 				responses = await Promise.all([
-					fetch(`${this.domain}durable-object/stats/groups?ouid=${user.userId}&groupNumber=${user.groupId}`),
-					fetch(`${this.domain}durable-object/stats/self?ouid=${user.userId}&groupNumber=${user.groupId}`)
+					fetch(`${this.domain}durable-object/stats/groups?groupNumber=${user.groupId}`),
+					// fetch(`${this.domain}durable-object/stats/self?ouid=${user.userId}&groupNumber=${user.groupId}`)
 				]);
 			}
 
